@@ -1,21 +1,34 @@
 import React, {useEffect, useState} from 'react'
-import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, ScrollView, StatusBar, ActivityIndicator } from 'react-native';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import * as Permissions from 'expo-permissions';
 
 export default function Home({navigation}) {
-  const [video, setVideo] = useState()
+  const [video, setVideo] = useState([])
   const [loading, setLoading] = useState(true)
     useEffect(() => {
       Permissions.askAsync(Permissions.CAMERA_ROLL)
-      MediaLibrary.getAssetsAsync({
-        mediaType : ['video'],
-      }).then((res)=>{
-        console.log(res.assets)
-        setVideo(res.assets)
-        setLoading(false)
+      MediaLibrary.getAlbumsAsync()
+      .then((res)=>{
+        console.log(res[0])
+        res.map((item,i)=>{
+          MediaLibrary.getAssetsAsync({
+            mediaType : ['video'],
+            album : item.id
+          })
+          .then((res2)=>{
+            if(res2.assets.length!==0){
+              var temp = video
+              temp.push(item)
+              setVideo(temp)
+            }
+          })
+          if(i===res.length-1){
+            setLoading(false)
+          }
+        })
       })
       const unsubscribe = navigation.addListener('focus', () => {
         ScreenOrientation.unlockAsync()
@@ -23,25 +36,26 @@ export default function Home({navigation}) {
       return unsubscribe
     }, [navigation])
 
-    if(loading) return <Text>loading</Text>
+    if(loading) return <ActivityIndicator/>
 
     else{
       return (
-      <ScrollView style={styles.container}>
-        <View style={styles.head}>
-          <Text style={styles.logo}>Upgrate Player</Text>
-        </View>
-        <View>
-          {video.map((item,i)=>{
-            return(
-              <TouchableOpacity key={i} onPress={()=>navigation.navigate('Player', {uri : item.uri})} style={styles.videoRow}>
-                <Image style={styles.folder} source={{uri : 'https://img.icons8.com/cute-clipart/64/000000/folder-invoices.png'}}/>
-                <Text>{item.filename}</Text>
-              </TouchableOpacity>
-            )
-          })}
-        </View>
-      </ScrollView>
+          <ScrollView style={styles.container}>
+            <StatusBar/>
+            <View style={styles.head}>
+              <Text style={styles.logo}>Upgrate Player</Text>
+            </View>
+            <View>
+              {video.map((item,i)=>{
+                return(
+                  <TouchableOpacity key={i} onPress={()=>navigation.navigate('Folder', {id : item.id})} style={styles.videoRow}>
+                    <Image style={styles.folder} source={{uri : 'https://img.icons8.com/cute-clipart/64/000000/folder-invoices.png'}}/>
+                    <Text>{item.title} {item.assetCount}</Text>
+                  </TouchableOpacity>
+                )
+              })}
+            </View>
+          </ScrollView>
       )
     }
 }
